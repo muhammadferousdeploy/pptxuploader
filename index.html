@@ -18,14 +18,14 @@
         "react": "https://esm.sh/react@18.2.0",
         "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
         "firebase/app": "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
-        "firebase/auth": "https://www.gstatic.com/0.7.1/firebase-auth.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
         "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
       }
     }
   </script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
     :root {
       --glass-light: rgba(255, 255, 255, 0.4);
@@ -139,7 +139,7 @@
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
     import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp, orderBy } from 'firebase/firestore';
 
-    // --- Elegant Custom SVG Icons (Replacing Lucide Dependency) ---
+    // --- Elegant Custom SVG Icons ---
     const Icon = ({ name, className = "w-5 h-5", size = 20 }) => {
       const icons = {
         menu: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />,
@@ -167,22 +167,39 @@
       );
     };
 
-    // --- Firebase Config & Initialization ---
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-      apiKey: "",
+    // --- Firebase Initialization & Smart Fallback ---
+    const defaultFirebaseConfig = {
+      apiKey: "", // Dibiarkan kosong kerana belum diisi
       authDomain: "eduvault-demo.firebaseapp.com",
       projectId: "eduvault-demo",
       storageBucket: "eduvault-demo.appspot.com",
       messagingSenderId: "12345678",
       appId: "1:1234:web:abcd"
     };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : defaultFirebaseConfig;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+    let app, auth, db;
+    let isFirebaseConfigured = false;
+
+    try {
+      // Semak jika apiKey ada dan sah. Jika tiada, kita jangan initialize supaya tak berlaku 'blank page'
+      if (firebaseConfig.apiKey && firebaseConfig.apiKey.length > 5) {
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        isFirebaseConfigured = true;
+      } else {
+        console.warn("⚠️ API Key Firebase tidak ditemui. Sistem beralih ke Mod Simulasi (Mockup UI).");
+      }
+    } catch (e) {
+      console.error("Ralat Firebase:", e);
+    }
 
     const AppContext = createContext();
 
+    // --- Helper Components ---
     const AnimatedDots = () => {
       const [dots, setDots] = useState('');
       useEffect(() => {
@@ -221,7 +238,7 @@
       );
     };
 
-    const GlassButton = ({ children, onClick, className = "", variant = "primary", disabled = false, icon: iconName }) => {
+    const GlassButton = ({ children, onClick, className = "", variant = "primary", disabled = false, icon: iconName, type="button" }) => {
       const baseStyle = "relative flex items-center justify-center gap-2 px-6 py-3 font-semibold rounded-full overflow-hidden transition-all duration-300 ease-out active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100";
       const variants = {
         primary: "bg-blue-600/90 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] border border-blue-400/30",
@@ -230,7 +247,7 @@
       };
 
       return (
-        <button onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`} disabled={disabled}>
+        <button type={type} onClick={onClick} className={`${baseStyle} ${variants[variant]} ${className}`} disabled={disabled}>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-700"></div>
           {iconName && <Icon name={iconName} size={18} className="relative z-10" />}
           <span className="relative z-10">{children}</span>
@@ -530,6 +547,10 @@
             setUploadState('success');
             
             const saveToDB = async () => {
+              if (!isFirebaseConfigured) {
+                console.log("Simulasi: Fail", file.name, "dimuat naik ke", category);
+                return;
+              }
               try {
                 const docRef = collection(db, 'artifacts', appId, 'public', 'data', 'presentations');
                 await addDoc(docRef, {
@@ -575,8 +596,20 @@
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InputField label="Nama Pelajaran" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Contoh: Sejarah, Sains..." disabled={uploadState !== 'idle'} />
-              <InputField label="Tajuk Pelajaran" value={title} onChange={e => setTitle(e.target.value)} placeholder="Contoh: Bab 1 - Pengenalan..." disabled={uploadState !== 'idle'} />
+              <div className="mb-5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 ml-1">Nama Pelajaran</label>
+                <input 
+                  className="w-full bg-white/40 dark:bg-black/40 border border-gray-300/50 dark:border-gray-600/50 rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-blue-500/30 transition-all backdrop-blur-sm"
+                  value={subject} onChange={e => setSubject(e.target.value)} placeholder="Contoh: Sejarah, Sains..." disabled={uploadState !== 'idle'} 
+                />
+              </div>
+              <div className="mb-5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 ml-1">Tajuk Pelajaran</label>
+                <input 
+                  className="w-full bg-white/40 dark:bg-black/40 border border-gray-300/50 dark:border-gray-600/50 rounded-2xl px-5 py-4 text-gray-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-blue-500/30 transition-all backdrop-blur-sm"
+                  value={title} onChange={e => setTitle(e.target.value)} placeholder="Contoh: Bab 1 - Pengenalan..." disabled={uploadState !== 'idle'} 
+                />
+              </div>
             </div>
 
             <div className="mb-8">
@@ -670,6 +703,9 @@
       const handleDelimaLogin = async () => {
         setLoadingType('student');
         try {
+          if (!isFirebaseConfigured) {
+            throw new Error("Sistem Firebase Belum Disambungkan (Mod Simulasi)"); 
+          }
           const provider = new GoogleAuthProvider();
           const result = await signInWithPopup(auth, provider);
           const user = result.user;
@@ -682,20 +718,17 @@
           });
           localStorage.setItem('eduvault_session', Date.now().toString());
         } catch (error) {
-          if (error.code === 'auth/unauthorized-domain') {
-            console.warn("Domain unauthorized. Falling back to simulation mode.");
-            alert("Nota: Domain pratonton ini belum didaftarkan dalam Firebase. Untuk tujuan pengujian, log masuk simulasi DELIMa akan diaktifkan secara automatik.");
-            setAppUser({ 
-              role: 'student', 
-              name: 'Pelajar DELIMa (Simulasi)', 
-              email: 'pelajar-delima@moe-dl.edu.my', 
-              school: 'SMK Chung Hwa Tenom' 
-            });
-            localStorage.setItem('eduvault_session', Date.now().toString());
-          } else {
-            console.error("Ralat Google login:", error);
-            alert("Ralat log masuk Google: " + error.message);
-          }
+          console.warn("Makluman:", error.message);
+          alert("Nota: Sambungan API Key Firebase tidak ditemui. Untuk tujuan pengujian visual, anda akan dilog masuk sebagai akaun simulasi pelajar.");
+          
+          // Fallback sentiasa bawa ke dalam sistem walau apa jua ralat berlaku
+          setAppUser({ 
+            role: 'student', 
+            name: 'Pelajar DELIMa (Simulasi)', 
+            email: 'pelajar-delima@moe-dl.edu.my', 
+            school: 'SMK Chung Hwa Tenom' 
+          });
+          localStorage.setItem('eduvault_session', Date.now().toString());
         } finally {
           setLoadingType(null);
         }
@@ -816,6 +849,22 @@
       }, [appUser]);
 
       useEffect(() => {
+        if (!isFirebaseConfigured) {
+          // Sistem Berjalan Dalam Mod Simulasi 
+          setFilesData([
+            { id: 'm1', title: 'Bab 1: Pengenalan kepada Sains', subject: 'Sains', category: 'Tingkatan 1' },
+            { id: 'm2', title: 'Bab 2: Sel sebagai Unit Asas', subject: 'Sains', category: 'Tingkatan 1' },
+            { id: 'm3', title: 'Bab 1: Mengenali Sejarah', subject: 'Sejarah', category: 'Tingkatan 1' },
+            { id: 'm4', title: 'Bab 2: Zaman Air Batu', subject: 'Sejarah', category: 'Tingkatan 1' },
+            { id: 'm5', title: 'Bab 3: Zaman Prasejarah', subject: 'Sejarah', category: 'Tingkatan 1' },
+            { id: 'm6', title: 'Bab 1: Nombor Nisbah', subject: 'Matematik', category: 'Tingkatan 1' },
+            { id: 'm7', title: 'Bab 1: Biodiversiti', subject: 'Sains', category: 'Tingkatan 2' },
+            { id: 'm8', title: 'Bab 1: Kedatangan Kuasa Barat', subject: 'Sejarah', category: 'Tingkatan 3' },
+          ]);
+          setLoading(false);
+          return;
+        }
+
         let unsubscribeSnap = null;
 
         const initFirebase = async () => {
@@ -833,19 +882,7 @@
 
             unsubscribeSnap = onSnapshot(q, (snapshot) => {
               const fetchedFiles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              
-              if (fetchedFiles.length === 0) {
-                setFilesData([
-                  { id: 'm1', title: 'Bab 1: Pengenalan kepada Sains', subject: 'Sains', category: 'Tingkatan 1' },
-                  { id: 'm2', title: 'Bab 2: Sel sebagai Unit Asas', subject: 'Sains', category: 'Tingkatan 1' },
-                  { id: 'm3', title: 'Bab 1: Mengenali Sejarah', subject: 'Sejarah', category: 'Tingkatan 1' },
-                  { id: 'm4', title: 'Bab 2: Zaman Air Batu', subject: 'Sejarah', category: 'Tingkatan 1' },
-                  { id: 'm5', title: 'Bab 3: Zaman Prasejarah', subject: 'Sejarah', category: 'Tingkatan 1' },
-                  { id: 'm6', title: 'Bab 1: Nombor Nisbah', subject: 'Matematik', category: 'Tingkatan 1' },
-                  { id: 'm7', title: 'Bab 1: Biodiversiti', subject: 'Sains', category: 'Tingkatan 2' },
-                  { id: 'm8', title: 'Bab 1: Kedatangan Kuasa Barat', subject: 'Sejarah', category: 'Tingkatan 3' },
-                ]);
-              } else {
+              if (fetchedFiles.length > 0) {
                 setFilesData(fetchedFiles);
               }
               setLoading(false);
