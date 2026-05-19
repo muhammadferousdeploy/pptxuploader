@@ -707,15 +707,13 @@
           if (!isFirebaseConfigured) {
             alert("RALAT KESELAMATAN: Sistem Firebase belum dikonfigurasi. Sila masukkan 'apiKey' Firebase anda di dalam kod untuk membolehkan log masuk Google.");
             setLoadingType(null);
-            return; // Hentikan fungsi di sini, jangan benarkan masuk
+            return;
           }
           
           const provider = new GoogleAuthProvider();
-          // Ini akan memaksa paparan (popup) akaun Google keluar
           const result = await signInWithPopup(auth, provider);
           const user = result.user;
           
-          // Berjaya log masuk dengan Google yang sebenar
           setAppUser({ 
             role: 'student', 
             name: user.displayName || 'Pelajar', 
@@ -724,8 +722,15 @@
           });
           localStorage.setItem('eduvault_session', Date.now().toString());
         } catch (error) {
-          console.error("Ralat log masuk Google:", error);
-          alert("Gagal log masuk: " + error.message);
+          // Tangkap ralat unauthorized-domain dan halang console.error supaya tidak keluar notis merah
+          if (error.code === 'auth/unauthorized-domain') {
+            const domain = window.location.hostname;
+            alert(`TINDAKAN KESELAMATAN DIPERLUKAN:\n\nSistem dihalang kerana domain "${domain}" tidak didaftarkan.\n\nSila ikut langkah ini:\n1. Buka Firebase Console.\n2. Pergi ke Authentication > Settings > Authorized domains.\n3. Tambah domain ini: ${domain}`);
+          } else {
+            console.error("Ralat log masuk Google:", error);
+            alert("Gagal log masuk: " + error.message);
+          }
+          
         } finally {
           setLoadingType(null);
         }
