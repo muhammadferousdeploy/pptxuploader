@@ -168,8 +168,9 @@
     };
 
     // --- Firebase Initialization & Smart Fallback ---
+    // PENTING: Gantikan nilai di bawah dengan maklumat Firebase sekolah anda!
     const defaultFirebaseConfig = {
-      apiKey: "", // Dibiarkan kosong kerana belum diisi
+      apiKey: "", // MASUKKAN API KEY FIREBASE ANDA DI SINI
       authDomain: "eduvault-demo.firebaseapp.com",
       projectId: "eduvault-demo",
       storageBucket: "eduvault-demo.appspot.com",
@@ -704,12 +705,17 @@
         setLoadingType('student');
         try {
           if (!isFirebaseConfigured) {
-            throw new Error("Sistem Firebase Belum Disambungkan (Mod Simulasi)"); 
+            alert("RALAT KESELAMATAN: Sistem Firebase belum dikonfigurasi. Sila masukkan 'apiKey' Firebase anda di dalam kod untuk membolehkan log masuk Google.");
+            setLoadingType(null);
+            return; // Hentikan fungsi di sini, jangan benarkan masuk
           }
+          
           const provider = new GoogleAuthProvider();
+          // Ini akan memaksa paparan (popup) akaun Google keluar
           const result = await signInWithPopup(auth, provider);
           const user = result.user;
           
+          // Berjaya log masuk dengan Google yang sebenar
           setAppUser({ 
             role: 'student', 
             name: user.displayName || 'Pelajar', 
@@ -718,16 +724,8 @@
           });
           localStorage.setItem('eduvault_session', Date.now().toString());
         } catch (error) {
-          console.warn("Log masuk ditala ke Mod Visual kerana tiada API Key:", error.message);
-          
-          // Pop-up Alert telah dibuang. Sistem terus melog masuk pengguna untuk tujuan pengujian dengan lancar.
-          setAppUser({ 
-            role: 'student', 
-            name: 'Pelajar DELIMa', 
-            email: 'pelajar-delima@moe-dl.edu.my', 
-            school: 'SMK Chung Hwa Tenom' 
-          });
-          localStorage.setItem('eduvault_session', Date.now().toString());
+          console.error("Ralat log masuk Google:", error);
+          alert("Gagal log masuk: " + error.message);
         } finally {
           setLoadingType(null);
         }
