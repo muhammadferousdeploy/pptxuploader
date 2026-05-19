@@ -185,7 +185,6 @@
     let isFirebaseConfigured = false;
 
     try {
-      // Semak jika apiKey ada dan sah.
       if (firebaseConfig.apiKey && firebaseConfig.apiKey.length > 5) {
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
@@ -705,7 +704,17 @@
         setLoadingType('student');
         try {
           if (!isFirebaseConfigured) {
-            alert("RALAT KESELAMATAN: Sistem Firebase belum dikonfigurasi. Sila masukkan 'apiKey' Firebase anda di dalam kod untuk membolehkan log masuk Google.");
+            // Berikan pilihan mod simulasi untuk tujuan ujian UI
+            const proceed = confirm("Amaran Keselamatan: Sistem Firebase (API Key) belum dikonfigurasi.\n\nUntuk tujuan pengujian antaramuka (UI), adakah anda mahu masuk menggunakan 'Mod Ujian Sementara'?");
+            if (proceed) {
+              setAppUser({ 
+                role: 'student', 
+                name: 'Pelajar DELIMa (Ujian)', 
+                email: 'ujian@moe-dl.edu.my', 
+                school: 'SMK Chung Hwa Tenom'
+              });
+              localStorage.setItem('eduvault_session', Date.now().toString());
+            }
             setLoadingType(null);
             return;
           }
@@ -722,7 +731,6 @@
           });
           localStorage.setItem('eduvault_session', Date.now().toString());
         } catch (error) {
-          // Tangkap ralat unauthorized-domain dan halang console.error supaya tidak keluar notis merah
           if (error.code === 'auth/unauthorized-domain') {
             const domain = window.location.hostname;
             alert(`TINDAKAN KESELAMATAN DIPERLUKAN:\n\nSistem dihalang kerana domain "${domain}" tidak didaftarkan.\n\nSila ikut langkah ini:\n1. Buka Firebase Console.\n2. Pergi ke Authentication > Settings > Authorized domains.\n3. Tambah domain ini: ${domain}`);
