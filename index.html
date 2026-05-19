@@ -167,10 +167,10 @@
       );
     };
 
-    // --- Firebase Initialization & Smart Fallback ---
-    // PENTING: Gantikan nilai di bawah dengan maklumat Firebase sekolah anda!
+    // --- Firebase Configuration ---
+    // NOTA: Gantikan maklumat di bawah ini dengan maklumat konfigurasi sebenar dari Firebase Console sekolah anda!
     const defaultFirebaseConfig = {
-      apiKey: "", // MASUKKAN API KEY FIREBASE ANDA DI SINI
+      apiKey: "", // MASUKKAN API KEY FIREBASE ANDA DI SINI UNTUK HUBUNGKAN DATABASE
       authDomain: "eduvault-demo.firebaseapp.com",
       projectId: "eduvault-demo",
       storageBucket: "eduvault-demo.appspot.com",
@@ -191,7 +191,7 @@
         db = getFirestore(app);
         isFirebaseConfigured = true;
       } else {
-        console.warn("⚠️ API Key Firebase tidak ditemui. Sistem beralih ke Mod Simulasi (Mockup UI).");
+        console.warn("⚠️ API Key Firebase tidak ditemui. Sistem menggunakan Mod Simulasi.");
       }
     } catch (e) {
       console.error("Ralat Firebase:", e);
@@ -234,6 +234,38 @@
               />
             );
           })}
+        </div>
+      );
+    };
+
+    // --- Custom Premium Glass Modal Component ---
+    const GlassModal = ({ show, title, message, type, onConfirm, onCancel }) => {
+      if (!show) return null;
+      return (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass-panel max-w-md w-full p-8 rounded-[2.5rem] border border-white/20 shadow-2xl animate-in zoom-in-95 duration-300 text-center">
+            <div className="w-16 h-16 mx-auto rounded-full bg-blue-100/50 dark:bg-blue-950/40 flex items-center justify-center mb-5 border border-blue-200/50">
+              <Icon name="alertCircle" className="text-blue-600 dark:text-blue-400" size={32} />
+            </div>
+            <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-3">{title}</h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed text-sm">{message}</p>
+            <div className="flex gap-4 justify-center">
+              {type === 'confirm' && (
+                <button 
+                  onClick={onCancel} 
+                  className="px-6 py-3 rounded-full font-medium glass-panel border border-white/10 hover:bg-white/10 dark:hover:bg-white/5 transition-all text-sm active:scale-95 text-gray-800 dark:text-gray-200"
+                >
+                  Batal
+                </button>
+              )}
+              <button 
+                onClick={onConfirm} 
+                className="px-6 py-3 rounded-full font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] border border-blue-400/30 transition-all text-sm active:scale-95"
+              >
+                {type === 'confirm' ? 'Setuju' : 'Tutup'}
+              </button>
+            </div>
+          </div>
         </div>
       );
     };
@@ -692,6 +724,9 @@
       const [adminPass, setAdminPass] = useState('');
       const [adminError, setAdminError] = useState('');
 
+      // Custom dialog modal state
+      const [alertModal, setAlertModal] = useState({ show: false, title: '', message: '', type: 'alert', onConfirm: null });
+
       const simulateLogin = (role, details) => {
         setLoadingType(role);
         setTimeout(() => {
@@ -704,17 +739,26 @@
         setLoadingType('student');
         try {
           if (!isFirebaseConfigured) {
-            // Berikan pilihan mod simulasi untuk tujuan ujian UI
-            const proceed = confirm("Amaran Keselamatan: Sistem Firebase (API Key) belum dikonfigurasi.\n\nUntuk tujuan pengujian antaramuka (UI), adakah anda mahu masuk menggunakan 'Mod Ujian Sementara'?");
-            if (proceed) {
-              setAppUser({ 
-                role: 'student', 
-                name: 'Pelajar DELIMa (Ujian)', 
-                email: 'ujian@moe-dl.edu.my', 
-                school: 'SMK Chung Hwa Tenom'
-              });
-              localStorage.setItem('eduvault_session', Date.now().toString());
-            }
+            // Memaparkan Dialog Kaca Khas gantian confirm() pelayar
+            setAlertModal({
+              show: true,
+              title: "Amaran Keselamatan",
+              message: "Sistem Firebase (API Key) belum dikonfigurasi.\n\nUntuk tujuan pengujian rekaan antaramuka (UI), adakah anda bersetuju untuk masuk menggunakan 'Mod Ujian Sementara'?",
+              type: "confirm",
+              onConfirm: () => {
+                setAlertModal({ show: false });
+                setAppUser({ 
+                  role: 'student', 
+                  name: 'Pelajar DELIMa (Ujian)', 
+                  email: 'ujian@moe-dl.edu.my', 
+                  school: 'SMK Chung Hwa Tenom'
+                });
+                localStorage.setItem('eduvault_session', Date.now().toString());
+              },
+              onCancel: () => {
+                setAlertModal({ show: false });
+              }
+            });
             setLoadingType(null);
             return;
           }
@@ -733,12 +777,23 @@
         } catch (error) {
           if (error.code === 'auth/unauthorized-domain') {
             const domain = window.location.hostname;
-            alert(`TINDAKAN KESELAMATAN DIPERLUKAN:\n\nSistem dihalang kerana domain "${domain}" tidak didaftarkan.\n\nSila ikut langkah ini:\n1. Buka Firebase Console.\n2. Pergi ke Authentication > Settings > Authorized domains.\n3. Tambah domain ini: ${domain}`);
+            setAlertModal({
+              show: true,
+              title: "Tindakan Diperlukan",
+              message: `Domain "${domain}" tidak didaftarkan dalam projek Firebase anda.\n\nSila ikut langkah ini:\n1. Buka Firebase Console.\n2. Pergi ke Authentication > Settings > Authorized domains.\n3. Tambah domain ini: ${domain}`,
+              type: "alert",
+              onConfirm: () => setAlertModal({ show: false })
+            });
           } else {
             console.error("Ralat log masuk Google:", error);
-            alert("Gagal log masuk: " + error.message);
+            setAlertModal({
+              show: true,
+              title: "Ralat Log Masuk",
+              message: "Gagal log masuk: " + error.message,
+              type: "alert",
+              onConfirm: () => setAlertModal({ show: false })
+            });
           }
-          
         } finally {
           setLoadingType(null);
         }
@@ -767,6 +822,16 @@
             {theme === 'dark' ? <Icon name="sun" size={20} className="text-yellow-400" /> : <Icon name="moon" size={20} className="text-blue-900" />}
           </button>
 
+          {/* Modal Kaca Premium Baharu */}
+          <GlassModal 
+            show={alertModal.show}
+            title={alertModal.title}
+            message={alertModal.message}
+            type={alertModal.type}
+            onConfirm={alertModal.onConfirm}
+            onCancel={alertModal.onCancel}
+          />
+
           <div className="glass-panel w-full max-w-md p-10 rounded-[2.5rem] relative z-10 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-1000">
             <div className="text-center mb-10">
                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl mb-6">
@@ -788,7 +853,7 @@
                  <div className={`transition-all duration-500 ${adminMode ? '-translate-x-full opacity-0 hidden' : 'translate-x-0 opacity-100 block'}`}>
                     
                     <GlassButton className="w-full py-4 text-lg" onClick={handleDelimaLogin}>
-                      {/* Logo Google yang telah dibaiki menggunakan SVG Dalaman */}
+                      {/* Logo Google SVG */}
                       <svg className="w-5 h-5 mr-2 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
                         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
